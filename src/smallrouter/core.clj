@@ -33,8 +33,13 @@
        (merge route)
        path/merge-path-regex))
 
-;; What is the fastest way to find a matching route?
-;; --------------------------------------------------
+;; What is the fastest way to find a matching static route?
+;; ---------------------------------------------------------
+
+;; Map lookup
+(defn map-matcher []
+  (fn [route]
+    (static-routes route)))
 
 ;; String compare in a sequence with map
 (defn seqmap-matcher []
@@ -75,38 +80,46 @@
           :else (recur (unchecked-add i 2)))))))
 
 (comment
+  (def mm-router (map-matcher))
   (def sm-router (seqmap-matcher))
   (def sl-router (seqloop-matcher))
   (def al-router (arrloop-matcher))
   (def ar-router (areduce-matcher))
 
-  (= (sm-router "/not-found")
+  (= (mm-router "/not-found")
+     (sm-router "/not-found")
      (sl-router "/not-found")
      (al-router "/not-found")
      (ar-router "/not-found"))
 
-  (= (sm-router "/app")
+  (= (mm-router "/app")
+     (sm-router "/app")
      (sl-router "/app")
      (al-router "/app")
      (ar-router "/app"))
 
-  (quick-bench (sm-router "/app")) ;; 1.906463 µs
-  (quick-bench (sl-router "/app")) ;; 959.100146 ns
-  (quick-bench (al-router "/app")) ;; 529.997928 ns
-  (quick-bench (ar-router "/app")) ;; 1.079943 µs
+  (quick-bench (mm-router "/app")) ;;   28.738859 ns
+  (quick-bench (sm-router "/app")) ;; 1246.463000 ns
+  (quick-bench (sl-router "/app")) ;;  710.010481 ns
+  (quick-bench (al-router "/app")) ;;  434.769799 ns
+  (quick-bench (ar-router "/app")) ;;  889.633374 ns
 
-  (quick-bench (sm-router "/resource1/attribute2/anothersubattr2")) ;; 766.096879 ns
-  (quick-bench (sl-router "/resource1/attribute2/anothersubattr2")) ;; 431.016547 ns
-  (quick-bench (al-router "/resource1/attribute2/anothersubattr2")) ;; 190.126422 ns
-  (quick-bench (ar-router "/resource1/attribute2/anothersubattr2")) ;; 452.719062 ns
+  (quick-bench (mm-router "/resource1/attribute2/anothersubattr2")) ;;  39.843952 ns
+  (quick-bench (sm-router "/resource1/attribute2/anothersubattr2")) ;; 517.020029 ns
+  (quick-bench (sl-router "/resource1/attribute2/anothersubattr2")) ;; 300.951481 ns
+  (quick-bench (al-router "/resource1/attribute2/anothersubattr2")) ;; 141.761121 ns
+  (quick-bench (ar-router "/resource1/attribute2/anothersubattr2")) ;; 313.458445 ns
 
   (def pt-router (prefix-tree/router ped-static-routes))
   (def ls-router (linear-search/router (mapv expand-route-path ped-static-routes)))
 
-  (quick-bench (router/find-route pt-router {:path-info "/app"})) ;; 1.063224 µs
-  (quick-bench (router/find-route ls-router {:path-info "/app"})) ;; 2.319130 µs
+  (def app-route {:path-info "/app"})
+  (def resource-route {:path-info "/resource1/attribute2/anothersubattr2"})
 
-  (quick-bench (router/find-route pt-router {:path-info "/resource1/attribute2/anothersubattr2"})) ;; 3.326260 µs
-  (quick-bench (router/find-route ls-router {:path-info "/resource1/attribute2/anothersubattr2"})) ;; 1.278639 µs
+  (quick-bench (router/find-route pt-router app-route)) ;;  741.584785 ns
+  (quick-bench (router/find-route ls-router app-route)) ;; 1722.548000 ns
+
+  (quick-bench (router/find-route pt-router resource-route)) ;; 2.298445 µs
+  (quick-bench (router/find-route ls-router resource-route)) ;; 1.021260 µs
   )
 

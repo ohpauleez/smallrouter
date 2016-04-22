@@ -4,7 +4,8 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.8.0"]
-                 [io.pedestal/pedestal.service "0.4.1"]
+                 ;[io.pedestal/pedestal.service "0.4.1"]
+                 [io.pedestal/pedestal.service "0.4.2-SNAPSHOT"]
                  [criterium "0.4.4"]
                  [thunknyc/profile "0.5.2"]]
   :global-vars {*warn-on-reflection* true
@@ -13,7 +14,8 @@
                 *assert* true}
   :pedantic? :abort
   ;:offline? true
-  :jvm-opts ^:replace ["-d64" "-server"
+  :jvm-opts ^:replace [;"-D\"clojure.compiler.direct-linking=true\""
+                       "-d64" "-server"
                        "-Xms1g"                             ;"-Xmx1g"
                        "-XX:+UnlockCommercialFeatures"      ;"-XX:+FlightRecorder"
                        ;"-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=8030"

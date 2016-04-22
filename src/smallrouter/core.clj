@@ -2,6 +2,7 @@
   (:require [io.pedestal.http.route.router :as router]
             [io.pedestal.http.route.path :as path]
             [io.pedestal.http.route.prefix-tree :as prefix-tree]
+            [io.pedestal.http.route.map-tree :as map-tree]
             [io.pedestal.http.route.linear-search :as linear-search]
             [criterium.core :as criterium :refer [bench quick-bench]]
             [profile.core :as thunkprofile]))
@@ -110,17 +111,20 @@
   (quick-bench (al-router "/resource1/attribute2/anothersubattr2")) ;; 141.761121 ns
   (quick-bench (ar-router "/resource1/attribute2/anothersubattr2")) ;; 313.458445 ns
 
+  (def mt-router (map-tree/router ped-static-routes))
   (def pt-router (prefix-tree/router ped-static-routes))
   (def ls-router (linear-search/router (mapv expand-route-path ped-static-routes)))
 
   (def app-route {:path-info "/app"})
   (def resource-route {:path-info "/resource1/attribute2/anothersubattr2"})
 
+  (quick-bench (router/find-route mt-router app-route)) ;;   63.465847 ns
   (quick-bench (router/find-route pt-router app-route)) ;;  741.584785 ns
   (quick-bench (router/find-route ls-router app-route)) ;; 1722.548000 ns
 
-  (quick-bench (router/find-route pt-router resource-route)) ;; 2.298445 µs
-  (quick-bench (router/find-route ls-router resource-route)) ;; 1.021260 µs
+  (quick-bench (router/find-route mt-router resource-route)) ;;   68.847378 ns
+  (quick-bench (router/find-route pt-router resource-route)) ;; 2298.445000 ns
+  (quick-bench (router/find-route ls-router resource-route)) ;; 1021.260000 ns
 
   ;; Let's isolate just the prefix tree lookup, which is much closer to the above
   (def ptree (reduce (fn [t [path f]]

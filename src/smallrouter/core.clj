@@ -121,5 +121,13 @@
 
   (quick-bench (router/find-route pt-router resource-route)) ;; 2.298445 µs
   (quick-bench (router/find-route ls-router resource-route)) ;; 1.021260 µs
+
+  ;; Let's isolate just the prefix tree lookup, which is much closer to the above
+  (def ptree (reduce (fn [t [path f]]
+                       (prefix-tree/insert t path f))
+                     nil
+                     static-routes))
+  (quick-bench (prefix-tree/lookup ptree "/app")) ;; 519.284763 ns
+  (quick-bench (prefix-tree/lookup ptree "/resource1/attribute2/anothersubattr2")) ;; 1.993672 µs
   )
 

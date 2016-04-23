@@ -6,6 +6,7 @@
   :dependencies [[org.clojure/clojure "1.8.0"]
                  ;[io.pedestal/pedestal.service "0.4.1"]
                  [io.pedestal/pedestal.service "0.4.2-SNAPSHOT"]
+                 [clout "2.1.2"]
                  [criterium "0.4.4"]
                  [thunknyc/profile "0.5.2"]]
   :global-vars {*warn-on-reflection* true

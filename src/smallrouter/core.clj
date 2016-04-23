@@ -4,6 +4,7 @@
             [io.pedestal.http.route.prefix-tree :as prefix-tree]
             [io.pedestal.http.route.map-tree :as map-tree]
             [io.pedestal.http.route.linear-search :as linear-search]
+            [clout.core :as clout]
             [criterium.core :as criterium :refer [bench quick-bench]]
             [profile.core :as thunkprofile]))
 
@@ -80,6 +81,14 @@
           (= (aget ^objects arr-routes i) route) (aget ^objects arr-routes (unchecked-inc i))
           :else (recur (unchecked-add i 2)))))))
 
+(defn clout-router []
+  ;; Compojure's router is a linear sequence walk using `some` via the `routing` fn
+  ;; It uses Clout's Route protocol to find a match via `route-matches`.
+  ;; To make this as realistic as possible, without middlewares in play, compile all routes.
+  (let [croutes (mapv clout/route-compile (keys static-routes))]
+    (fn [req]
+      (some #(clout/route-matches % req) croutes))))
+
 (comment
   (def mm-router (map-matcher))
   (def sm-router (seqmap-matcher))
@@ -114,6 +123,7 @@
   (def mt-router (map-tree/router ped-static-routes))
   (def pt-router (prefix-tree/router ped-static-routes))
   (def ls-router (linear-search/router (mapv expand-route-path ped-static-routes)))
+  (def cc-router (clout-router))
 
   (def app-route {:path-info "/app"})
   (def resource-route {:path-info "/resource1/attribute2/anothersubattr2"})
@@ -121,10 +131,12 @@
   (quick-bench (router/find-route mt-router app-route)) ;;   63.465847 ns
   (quick-bench (router/find-route pt-router app-route)) ;;  741.584785 ns
   (quick-bench (router/find-route ls-router app-route)) ;; 1722.548000 ns
+  (quick-bench (cc-router app-route))                   ;; 1236.624000 ns
 
   (quick-bench (router/find-route mt-router resource-route)) ;;   68.847378 ns
   (quick-bench (router/find-route pt-router resource-route)) ;; 2298.445000 ns
   (quick-bench (router/find-route ls-router resource-route)) ;; 1021.260000 ns
+  (quick-bench (cc-router resource-route))                   ;;  763.189831 ns
 
   ;; Let's isolate just the prefix tree lookup, which is much closer to the above
   (def ptree (reduce (fn [t [path f]]

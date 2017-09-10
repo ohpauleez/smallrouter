@@ -7,7 +7,10 @@
             [clout.core :as clout]
             [bidi.bidi :as bidi]
             [criterium.core :as criterium :refer [bench quick-bench]]
-            [profile.core :as thunkprofile]))
+            [profile.core :as thunkprofile])
+  (:import (java.util Map
+                      HashMap
+                      Collections)))
 
 ;; Let's assume I have a web service with 10 routes, all static...
 
@@ -21,6 +24,8 @@
                     "/tworesource/attribute1" (fn [req] "Hello Resource2-Attr1")
                     "/tworesource/attr2" (fn [req] "Hello Resource2-Attr2")
                     "/tworesource/onemoreattribute3" (fn [req] "Hello Resource2-Attr3")})
+
+(def java-static-routes (Collections/unmodifiableMap static-routes))
 
 (def ped-static-routes (mapv #(hash-map :path %) (keys static-routes)))
 
@@ -160,5 +165,14 @@
                      static-routes))
   (quick-bench (prefix-tree/lookup ptree "/app")) ;; 519.284763 ns
   (quick-bench (prefix-tree/lookup ptree "/resource1/attribute2/anothersubattr2")) ;; 1.993672 µs
+
+  ;; Just map lookups
+  (def java-static-routes2 (Collections/unmodifiableMap (HashMap. ^Map java-static-routes)))
+
+  (quick-bench (.get ^Map java-static-routes2 "/tworesource/attribute1")) ;; 0.322747 ns
+  (quick-bench (.get ^Map java-static-routes "/tworesource/attribute1")) ;; 27.767645 ns
+  (quick-bench (get static-routes "/tworesource/attribute1")) ;; 28.201482 ns
+
+
   )
 

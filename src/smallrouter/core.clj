@@ -7,7 +7,8 @@
             [clout.core :as clout]
             [bidi.bidi :as bidi]
             [criterium.core :as criterium :refer [bench quick-bench]]
-            [profile.core :as thunkprofile])
+            ;[profile.core :as thunkprofile]
+            )
   (:import (java.util Map
                       HashMap
                       Collections)))
@@ -87,6 +88,20 @@
           (= (aget ^objects arr-routes i) route) (aget ^objects arr-routes (unchecked-inc i))
           :else (recur (unchecked-add i 2)))))))
 
+;; Expand the routes into a `case` statement
+(defmacro make-case-router
+  [route-map]
+  (let [route-seq (mapcat identity (if (symbol? route-map) @(resolve route-map) route-map))]
+    `(fn [route#]
+       (case route#
+         ~@route-seq
+         nil))))
+
+(defn case-matcher []
+  (make-case-router static-routes))
+
+(case-matcher)
+
 (defn clout-router []
   ;; Compojure's router is a linear sequence walk using `some` via the `routing` fn
   ;; It uses Clout's Route protocol to find a match via `route-matches`.
@@ -112,30 +127,43 @@
   (def sl-router (seqloop-matcher))
   (def al-router (arrloop-matcher))
   (def ar-router (areduce-matcher))
+  (def ca-router (case-matcher))
 
   (= (mm-router "/not-found")
      (sm-router "/not-found")
      (sl-router "/not-found")
      (al-router "/not-found")
-     (ar-router "/not-found"))
+     (ar-router "/not-found")
+     (ca-router "/not-found"))
 
   (= (mm-router "/app")
      (sm-router "/app")
      (sl-router "/app")
      (al-router "/app")
-     (ar-router "/app"))
+     (ar-router "/app")
+     ;(ca-router "/app") ;; Note: This makes new functions
+     )
+
+  (= ((mm-router "/resource1") 1)
+     ((sm-router "/resource1") 1)
+     ((sl-router "/resource1") 1)
+     ((al-router "/resource1") 1)
+     ((ar-router "/resource1") 1)
+     ((ca-router "/resource1") 1))
 
   (quick-bench (mm-router "/app")) ;;   28.738859 ns
   (quick-bench (sm-router "/app")) ;; 1246.463000 ns
   (quick-bench (sl-router "/app")) ;;  710.010481 ns
   (quick-bench (al-router "/app")) ;;  434.769799 ns
   (quick-bench (ar-router "/app")) ;;  889.633374 ns
+  (quick-bench (ca-router "/app")) ;;  0.2 ns
 
   (quick-bench (mm-router "/resource1/attribute2/anothersubattr2")) ;;  39.843952 ns
   (quick-bench (sm-router "/resource1/attribute2/anothersubattr2")) ;; 517.020029 ns
   (quick-bench (sl-router "/resource1/attribute2/anothersubattr2")) ;; 300.951481 ns
   (quick-bench (al-router "/resource1/attribute2/anothersubattr2")) ;; 141.761121 ns
   (quick-bench (ar-router "/resource1/attribute2/anothersubattr2")) ;; 313.458445 ns
+  (quick-bench (ca-router "/resource1/attribute2/anothersubattr2")) ;; 0.5 ns
 
   (def mt-router (map-tree/router ped-static-routes))
   (def pt-router (prefix-tree/router ped-static-routes))

@@ -6,6 +6,7 @@
             [io.pedestal.http.route.linear-search :as linear-search]
             [clout.core :as clout]
             [bidi.bidi :as bidi]
+            [reitit.core :as reitit]
             [criterium.core :as criterium :refer [bench quick-bench]]
             ;[profile.core :as thunkprofile]
             )
@@ -100,8 +101,6 @@
 (defn case-matcher []
   (make-case-router static-routes))
 
-(case-matcher)
-
 (defn clout-router []
   ;; Compojure's router is a linear sequence walk using `some` via the `routing` fn
   ;; It uses Clout's Route protocol to find a match via `route-matches`.
@@ -120,6 +119,10 @@
     (fn [req]
       (:handler (bidi/match-route broutes (:path-info req))))))
 
+(defn reitit-router []
+  (let [rrouter (reitit/router static-routes)]
+    (fn [req]
+      (:data (reitit/match-by-path rrouter (:path-info req))))))
 
 (comment
   (def mm-router (map-matcher))
@@ -170,16 +173,19 @@
   (def ls-router (linear-search/router (mapv expand-route-path ped-static-routes)))
   (def cc-router (clout-router))
   (def bb-router (bidi-router))
+  (def rr-router (reitit-router))
 
   (def app-route {:path-info "/app"})
   (def resource-route {:path-info "/resource1/attribute2/anothersubattr2"})
 
+  (quick-bench (rr-router app-route))                   ;;   20.4926   ns
   (quick-bench (router/find-route mt-router app-route)) ;;   59.537676 ns
   (quick-bench (router/find-route pt-router app-route)) ;;  741.584785 ns
   (quick-bench (router/find-route ls-router app-route)) ;; 1722.548000 ns
   (quick-bench (cc-router app-route))                   ;; 1236.624000 ns
   (quick-bench (bb-router app-route))                   ;; 4870.922000 ns
 
+  (quick-bench (rr-router resource-route))                   ;;   31.7966   ns
   (quick-bench (router/find-route mt-router resource-route)) ;;   68.847378 ns
   (quick-bench (router/find-route pt-router resource-route)) ;; 2298.445000 ns
   (quick-bench (router/find-route ls-router resource-route)) ;; 1021.260000 ns
@@ -200,6 +206,88 @@
   (quick-bench (.get ^Map java-static-routes2 "/tworesource/attribute1")) ;; 0.322747 ns
   (quick-bench (.get ^Map java-static-routes "/tworesource/attribute1")) ;; 27.767645 ns
   (quick-bench (get static-routes "/tworesource/attribute1")) ;; 28.201482 ns
+
+
+  ;; Looking at map lookups...
+  (def am {:a 1 :b 2})
+  (def hm {:a 1 :b 2 :c 3 :d 4 :e 5 :f 6 :g 7 :h 8 :i 9})
+  (def um (Map/of :a 1 :b 2 :c 3 :d 4 :e 5 :f 6 :g 7 :h 8 :i 9))
+  (def jhm (doto (HashMap.)
+             (.put :a 1)
+             (.put :b 2)
+             (.put :c 3)
+             (.put :d 4)
+             (.put :e 5)
+             (.put :f 6)))
+  (def uhm (Collections/unmodifiableMap ^Map jhm))
+  (defrecord TRec [a b])
+  (def ar (TRec. 1 2))
+  (def mar (assoc ar :c 3 :d 4))
+  (def cf (fn [x]
+            (case x
+              :a 1
+              :b 2
+              :c 3
+              :d 4
+              :e 5)))
+
+  ;; AMap with key access
+  (quick-bench (:a am)) ;; 8.66 ns
+
+  ;; HMap with key access
+  (quick-bench (:f hm)) ;; 25.54 ns
+
+  ;; AMap with get access
+  (quick-bench (get am :a)) ;; 6.92 ns
+
+  ;; HMap with get access
+  (quick-bench (get hm :a)) ;; 17.37 ns
+
+  ;; UMap with get access
+  (quick-bench (get um :a)) ;; 43.91 ns
+  (quick-bench (.get ^java.util.Map um :a)) ;; 10.36 ns
+  (quick-bench (.get ^java.util.Map uhm :a)) ;; 9.01 ns
+  (quick-bench (.get ^java.util.Map um :f)) ;; 10.34 ns
+  (quick-bench (.get ^java.util.Map uhm :f)) ;; 8.83 ns
+
+  ;; JHMap with get access
+  ;; The cost here is RT.get -- you have to fall through to another method call,
+  ;; another instance check, and a cast before `.get` is called -- 25 ns.
+  (quick-bench (get jhm :a)) ;; 33.22 ns
+  (quick-bench (.get ^java.util.Map jhm :a)) ;; 7.69 ns
+
+  ;; AMap with two get calls -- 13.77 ns
+  (quick-bench (do
+                 (get am :a)
+                 (get am :b)))
+
+  ;; Unmod'Map with two get calls -- 85.54 ns
+  (quick-bench (do
+                 (get um :a)
+                 (get um :b)))
+
+  ;; Two maps with interleaving get calls (does the JIT deoptimize?)
+  ;; 35.57 ns
+  (quick-bench (do
+                 (get am :a)
+                 (get hm :b)))
+
+  ;; Record with key access
+  (quick-bench (:a ar)) ;; 6.36 ns
+
+  ;; Record with field access
+  (quick-bench (.a ^TRec ar)) ;; 5.13 ns
+
+  ;; Modified Record with key access
+  (quick-bench (:a mar)) ;; 7.12 ns
+  (quick-bench (:c mar)) ;; 16.97 ns
+
+  ;; Modified Record with field access
+  (quick-bench (.a ^TRec mar)) ;; 5.58 ns
+
+  ;; Case-fn with key lookup
+  (quick-bench (cf :a)) ;; 3.27 ns
+  (quick-bench (cf :e)) ;; 0.2 ns
 
 
   )

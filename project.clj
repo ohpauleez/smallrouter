@@ -3,11 +3,19 @@
   :url "http://example.com/FIXME"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure "1.10.0"]
-                 [io.pedestal/pedestal.service "0.5.5"]
-                 [bidi "2.0.9"]
-                 [clout "2.1.2"]
-                 [criterium "0.4.4"]]
+  :dependencies [[org.clojure/clojure "1.10.1"]
+                 [io.pedestal/pedestal.service "0.5.7"]
+                 [metosin/reitit "0.3.9"]
+                 [bidi "2.1.6"]
+                 [clout "2.2.1"]
+                 [criterium "0.4.4"]
+
+                 ;; Cleanup
+                 [com.fasterxml.jackson.core/jackson-core "2.9.9"]
+                 [com.fasterxml.jackson.core/jackson-databind "2.9.9"]
+                 [prismatic/schema "1.1.11"]
+
+                 ]
   :global-vars {*warn-on-reflection* true
                 ;*unchecked-math* :warn-on-boxed
                 ;*compiler-options* {:disable-locals-clearing true}
